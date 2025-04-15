@@ -6,6 +6,8 @@ import './App.css';
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '' });
+  const [editingTask, setEditingTask] = useState(null); // Tarea en edición
+  const [editForm, setEditForm] = useState({ title: '', description: '', dueDate: '' });
 
   // URL base de tu API Spring Boot
   const API_URL = 'http://localhost:8080/taskman/tasks';
@@ -64,6 +66,43 @@ function App() {
     }
   };
 
+  // Iniciar edición de una tarea
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      dueDate: task.dueDate || '',
+    });
+  };
+
+  // Guardar cambios de la tarea editada
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedTask = {
+        ...editingTask,
+        title: editForm.title,
+        description: editForm.description,
+        dueDate: editForm.dueDate,
+      };
+      const response = await axios.put(`${API_URL}/${editingTask.id}`, updatedTask);
+      setTasks(tasks.map(t => (t.id === editingTask.id ? response.data : t)));
+      setEditingTask(null);
+      setEditForm({ title: '', description: '', dueDate: '' });
+      toast.success('Tarea actualizada con éxito');
+    } catch (error) {
+      toast.error('Error al actualizar la tarea');
+      console.error('Error updating task:', error);
+    }
+  };
+
+  // Cancelar edición
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+    setEditForm({ title: '', description: '', dueDate: '' });
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-lg p-6">
@@ -110,37 +149,88 @@ function App() {
             tasks.map(task => (
               <div
                 key={task.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg shadow-sm"
+                className="p-4 bg-gray-50 rounded-lg shadow-sm"
               >
-                <div>
-                  <h3
-                    className={`text-lg font-medium ${
-                      task.status === 'COMPLETED' ? 'line-through text-gray-500' : 'text-gray-800'
-                    }`}
-                  >
-                    {task.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">{task.description || 'Sin descripción'}</p>
-                  <p className="text-sm text-gray-500">Vence: {task.dueDate || 'Sin fecha'}</p>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleToggleComplete(task)}
-                    className={`px-3 py-1 rounded-lg text-sm ${
-                      task.status === 'PENDING'
-                        ? 'bg-green-500 text-white hover:bg-green-600'
-                        : 'bg-yellow-500 text-white hover:bg-yellow-600'
-                    }`}
-                  >
-                    {task.status === 'PENDING' ? 'Completar' : 'Desmarcar'}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
-                  >
-                    Eliminar
-                  </button>
-                </div>
+                {editingTask && editingTask.id === task.id ? (
+                  <form onSubmit={handleSaveEdit} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <input
+                        type="text"
+                        placeholder="Título"
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Descripción"
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="date"
+                        value={editForm.dueDate}
+                        onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        type="submit"
+                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-3 py-1 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3
+                        className={`text-lg font-medium ${
+                          task.status === 'COMPLETED' ? 'line-through text-gray-500' : 'text-gray-800'
+                        }`}
+                      >
+                        {task.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">{task.description || 'Sin descripción'}</p>
+                      <p className="text-sm text-gray-500">Vence: {task.dueDate || 'Sin fecha'}</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEditTask(task)}
+                        className="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleToggleComplete(task)}
+                        className={`px-3 py-1 rounded-lg text-sm ${
+                          task.status === 'PENDING'
+                            ? 'bg-green-500 text-white hover:bg-green-600'
+                            : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                        }`}
+                      >
+                        {task.status === 'PENDING' ? 'Completar' : 'Desmarcar'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
